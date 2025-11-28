@@ -1,6 +1,6 @@
 classes_rpg = {
     "Guerreiro": {
-        "constituição": 10,
+        "constituicao": 10,
         "destreza": 3,
         "forca": 10,
         "inteligencia": 5,
@@ -10,7 +10,7 @@ classes_rpg = {
         "icone": "🛡️"
     },
     "Mago": {
-        "constituição": 6,
+        "constituicao": 6,
         "destreza": 10,
         "forca": 2,
         "inteligencia": 12,
@@ -20,7 +20,7 @@ classes_rpg = {
         "icone": "🔮"
     },
     "Ladino": {
-        "constituição": 7,
+        "constituicao": 7,
         "destreza": 12,
         "forca": 6,
         "inteligencia": 6,
@@ -30,7 +30,7 @@ classes_rpg = {
         "icone": "🗡️"
     },
     "Clérigo": {
-        "constituição": 8,
+        "constituicao": 8,
         "destreza": 8,
         "forca": 5,
         "inteligencia": 8,
