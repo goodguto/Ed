@@ -1,6 +1,9 @@
 import discord
 from discord.ext import commands
 from Bot.bot import carregar_token
+from Bot.dados import classes_rpg
+
+
 intents = discord.Intents.all() #permissoes pro bot funcionar
 
 bot = commands.Bot(command_prefix="./", intents=intents) #variavel para ter todas as propriedades do bot
@@ -57,9 +60,29 @@ async def instrucoes(ctx:commands.Context):
 
     await ctx.send(embed=embed_regras)
 
+#depois tenho que ajeitar. tá tudo muito colado
 @bot.command()
 async def classes(ctx: commands.Context):
-    await ctx.send("🚧 As classes ainda estão sendo forjadas pelos ferreiros (Em construção)...")
+    embed_classes = discord.Embed(
+        title="⚔️ Classes Disponíveis",
+        description="Atributos iniciais (Base 20). Escolha com sabedoria.",
+        color=0xe74c3c
+    )
+
+    for nome_classe, atb in classes_rpg.items():
+        texto_status = (
+            f"{atb['icone']} **{atb['descricao']}**\n"
+            f"💪 FOR: {atb['forca']} | 🤸 DES: {atb['destreza']} | ❤️ CON: {atb['constituição']}\n"
+            f"🧠 INT: {atb['inteligencia']} | 🦉 SAB: {atb['sabedoria']} | 👄 CAR: {atb['carisma']}"
+        )
+
+        embed_classes.add_field(
+            name=f"🔹 {nome_classe}",
+            value=texto_status,
+            inline=False
+        )
+
+    await ctx.send(embed=embed_classes)
 
 if token !="":
     bot.run(token)
