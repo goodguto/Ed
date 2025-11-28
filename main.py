@@ -2,7 +2,15 @@ import discord
 from discord.ext import commands
 from Bot.bot import carregar_token
 from Bot.dados import classes_rpg
-from Bot.jogadores import salvar_jogador, jogador_existe, carregar_jogador, deletar_jogador
+from Bot.jogadores import (
+    salvar_personagem, 
+    carregar_personagem, 
+    deletar_personagem,
+    personagem_existe, 
+    listar_personagens,
+    renomear_personagem, 
+    editar_atributo_personagem
+)
 
 intents = discord.Intents.all() #permissoes pro bot funcionar
 
@@ -11,8 +19,44 @@ bot = commands.Bot(command_prefix="./", intents=intents) #variavel para ter toda
 token = carregar_token()
 
 @bot.event
-async def on_ready(): #função assincrona basica né
+async def on_ready(): 
     print("Bot iniciado corretamente")
+@bot.command()
+async def menu(ctx: commands.Context):
+    embed = discord.Embed(
+        title="📜 Menu de Comandos do RPG",
+        description="Guia rápido para sua aventura.",
+        color=0x3498db
+    )
+    
+    embed.add_field(
+        name="🐣 Criação e Personagens", 
+        value=(
+            "`./classes` - Ver classes disponíveis.\n"
+            "`./criar [Classe] [Nome]` - Criar novo personagem.\n"
+            "`./meus_personagens` - Listar seus heróis.\n"
+            "`./perfil [Nome]` - Ver a ficha completa."
+        ), 
+        inline=False
+    )
+    
+    embed.add_field(
+        name="⚙️ Gerenciamento", 
+        value=(
+            "`./renomear [NomeAntigo] [NomeNovo]` - Mudar nome do personagem.\n"
+            "`./editar [Nome] [Atributo] [Valor]` - Alterar status (Ex: forca 15).\n"
+            "`./deletar [Nome]` - Apagar um personagem."
+        ), 
+        inline=False
+    )
+    
+    embed.add_field(
+        name="❓ Outros", 
+        value="`./instrucoes` - Regras do servidor.", 
+        inline=False
+    )
+    
+    await ctx.send(embed=embed)
 
 @bot.command()
 async def saudacoes(ctx:commands.Context): #guarda informações (servidor, usuario, canal), que o comando foi chamado
@@ -84,14 +128,16 @@ async def classes(ctx: commands.Context):
 
     await ctx.send(embed=embed_classes)
 
+
+#proximo passo é fazer a função aceitar nome composto. na realidade isso até é fácil. mas n é o foco agora
 @bot.command()
-async def escolher_classe(ctx:commands.Context, nome_classe: str):
+async def criar(ctx:commands.Context, nome_classe: str, nome_personagem:str):
     id_jogador = ctx.author.id
     nome_jogador = ctx.author.display_name
     classe_formatada = nome_classe.capitalize().strip()
 
-    if jogador_existe(id_jogador):
-        await ctx.reply(f"Você já possui uma ficha {nome_jogador}! Use o comando ./perfil para ver")
+    if personagem_existe(id_jogador, nome_personagem):
+        await ctx.reply(f"Você já possui um personagem com o nome **{nome_personagem}**. Vamos manter a originalidade kkkkkkk, tenta outro")
         return
         
     
@@ -99,7 +145,8 @@ async def escolher_classe(ctx:commands.Context, nome_classe: str):
         atributos_base = classes_rpg[classe_formatada]
 
         nova_ficha={
-            "nome": nome_jogador,
+            "nome": nome_personagem,
+            "dono_id": id_jogador,
             "classe": classe_formatada,
             "nivel": 1,
             "xp": 0,
@@ -109,17 +156,28 @@ async def escolher_classe(ctx:commands.Context, nome_classe: str):
             "inventario": None,
         }
 
-        salvar_jogador(id_jogador, nova_ficha)
+        salvar_personagem(id_jogador,nome_personagem, nova_ficha)
 
-        await ctx.reply(f"Parabéns!! Agora você é um **{classe_formatada}**. Curta sua jornado com sabedoria")
+        await ctx.reply(f"Parabéns **{nome_personagem}**!! Agora você é um **{classe_formatada}**. Curta sua jornado com sabedoria")
 
     else:
         await ctx.reply(f"a classe que você escolheu não existe ainda :( . mas você pode dar uma olhada em ./classes para ver qual você mais gostou")
+@bot.command()
+async def meus_personagens(ctx:commands.Context):
+    id_jogador = ctx.author.id
+    lista = listar_personagens(id_jogador)
+
+    if len(lista) > 0:
+        texto_lista= ", ".join(lista)
+        await ctx.reply(f"Seus personagens Slavos: **{texto_lista}**")
+    else:
+        await ctx.reply("você não tem nenhum personagem")
+
 
 @bot.command()
-async def perfil(ctx:commands.Context):
+async def perfil(ctx:commands.Context, nome_personagem:str):
     id_jogador = ctx.author.id
-    dados = carregar_jogador(id_jogador)
+    dados = carregar_personagem(id_jogador, nome_personagem)
 
     if dados:
         atb = dados["atributos"]
@@ -139,10 +197,53 @@ async def perfil(ctx:commands.Context):
     else:
         await ctx.reply("Você ainda não tem personagem. Use ./escolher_classe + o nome da classe que voce quer")
 
+# @bot.command()
+# async def editar(ctx:commands.Context, novo_nome:str):
+#     id_jogador = ctx.author.id
+#     dados = carregar_personagem(id_jogador)
+
+#     if dados:
+#         dados["nomes"]: novo_nome
+#         salvar_personagem(id_jogador, dados)
+#         await ctx.reply(f"Nome editado para **{novo_nome}**!")
+#     else:
+#         await ctx.reply(f"Crie um personagem antes de tentar editalo")
+
+@bot.command()
+async def deletar(ctx:commands.Context, nome_personagem:str):
+    id_jogador = ctx.author.id
+    sucesso = deletar_personagem(id_jogador, nome_personagem)
+
+    if sucesso: 
+        await ctx.reply(f"O personagem**{nome_personagem}** foi deletado com sucesso")
+
+    else:
+        await ctx.reply(f"você não tem um personagem "**{nome_personagem}**" para deletar")
+
+@bot.command()
+async def renomear(ctx: commands.Context, nome_antigo: str, nome_novo: str):
+    id_jogador = ctx.author.id
+    
+    
+    sucesso, mensagem = renomear_personagem(id_jogador, nome_antigo, nome_novo)
+    
+    if sucesso:
+        await ctx.reply(f"✅ Personagem renomeado de **{nome_antigo}** para **{nome_novo}**!")
+    else:
+        await ctx.reply(f"❌ Erro: {mensagem}")
 
 
-
-
+@bot.command()
+async def editar(ctx: commands.Context, nome_char: str, atributo: str, valor: int):
+    id_jogador = ctx.author.id
+    
+    
+    sucesso, mensagem = editar_atributo_personagem(id_jogador, nome_char, atributo, valor)
+    
+    if sucesso:
+        await ctx.reply(f"✅ Atualização: {mensagem}")
+    else:
+        await ctx.reply(f"❌ Erro: {mensagem}")
 
 if token !="":
     bot.run(token)
