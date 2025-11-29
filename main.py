@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from Bot.bot import carregar_token
 from Bot.dados import classes_rpg
+
 from Bot.jogadores import (
     salvar_personagem, 
     carregar_personagem, 
@@ -11,6 +12,7 @@ from Bot.jogadores import (
     renomear_personagem, 
     editar_atributo_personagem
 )
+from Bot.ia import gerar_resposta_rpg
 
 intents = discord.Intents.all() #permissoes pro bot funcionar
 
@@ -244,6 +246,39 @@ async def editar(ctx: commands.Context, nome_char: str, atributo: str, valor: in
         await ctx.reply(f"✅ Atualização: {mensagem}")
     else:
         await ctx.reply(f"❌ Erro: {mensagem}")
+
+@bot.command()
+async def acao(ctx: commands.Context, *, mensagem_usuario: str):
+    """
+    Comando principal para interagir com o RPG.
+    Uso: ./acao Olho ao redor da taverna procurando briga.
+    """
+    id_jogador = ctx.author.id
+    
+    #precisamos saber qual personagem o jogador está usando.
+    lista_chars = listar_personagens(id_jogador)
+    
+    if len(lista_chars) == 0:
+        await ctx.reply("Você não tem personagem criado! Use `./criar` primeiro.")
+        return
+
+    nome_personagem = lista_chars[0] 
+    dados_ficha = carregar_personagem(id_jogador, nome_personagem)
+    
+    if dados_ficha:
+        async with ctx.typing():
+
+            resposta_gm = gerar_resposta_rpg(
+                nome_personagem=dados_ficha['nome'],
+                classe=dados_ficha['classe'],
+                atributos=dados_ficha['atributos'],
+                historico_chat=[], # implementar memória
+                mensagem_usuario=mensagem_usuario
+            )
+            
+            await ctx.reply(resposta_gm)
+    else:
+        await ctx.reply("Erro ao carregar ficha.")
 
 if token !="":
     bot.run(token)
