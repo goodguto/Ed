@@ -1,28 +1,32 @@
 import discord
+import asyncio # Importante para não travar o bot
 from discord.ext import commands
 from Bot.bot import carregar_token
 from Bot.dados import classes_rpg
 
+
 from Bot.jogadores import (
     salvar_personagem, 
     carregar_personagem, 
-    deletar_personagem,
+    deletar_personagem, 
     personagem_existe, 
     listar_personagens,
     renomear_personagem, 
     editar_atributo_personagem
 )
-from Bot.ia import gerar_resposta_rpg
 
-intents = discord.Intents.all() #permissoes pro bot funcionar
+from Bot.ia import gerar_resposta_rpg, gerar_resposta_gm_ooc
 
-bot = commands.Bot(command_prefix="./", intents=intents) #variavel para ter todas as propriedades do bot
+intents = discord.Intents.all()
+bot = commands.Bot(command_prefix="./", intents=intents)
+bot.remove_command('help')
 
 token = carregar_token()
 
 @bot.event
-async def on_ready(): 
-    print("Bot iniciado corretamente")
+async def on_ready():
+    print(f"Bot Online! Usando IA: DeepSeek-R1")
+
 @bot.command()
 async def menu(ctx: commands.Context):
     embed = discord.Embed(
@@ -54,15 +58,18 @@ async def menu(ctx: commands.Context):
     
     embed.add_field(
         name="❓ Outros", 
-        value="`./instrucoes` - Regras do servidor.", 
+        value=(
+            "`./instrucoes` - Regras do servidor.\n", 
+            "`./tutorial` - Apagar um personagem."
+        ),
         inline=False
     )
     
     await ctx.send(embed=embed)
 
 @bot.command()
-async def saudacoes(ctx:commands.Context): #guarda informações (servidor, usuario, canal), que o comando foi chamado
-    nome = ctx.author.display_name #pega o apelido no server
+async def saudacoes(ctx:commands.Context):
+    nome = ctx.author.display_name
     await ctx.reply(f"Olá, {nome}! tudo certo?")
 
 @bot.command()
@@ -106,7 +113,6 @@ async def instrucoes(ctx:commands.Context):
 
     await ctx.send(embed=embed_regras)
 
-#depois tenho que ajeitar. tá tudo muito colado
 @bot.command()
 async def classes(ctx: commands.Context):
     embed_classes = discord.Embed(
@@ -130,8 +136,6 @@ async def classes(ctx: commands.Context):
 
     await ctx.send(embed=embed_classes)
 
-
-#proximo passo é fazer a função aceitar nome composto. na realidade isso até é fácil. mas n é o foco agora
 @bot.command()
 async def criar(ctx:commands.Context, nome_classe: str, nome_personagem:str):
     id_jogador = ctx.author.id
@@ -142,7 +146,6 @@ async def criar(ctx:commands.Context, nome_classe: str, nome_personagem:str):
         await ctx.reply(f"Você já possui um personagem com o nome **{nome_personagem}**. Vamos manter a originalidade kkkkkkk, tenta outro")
         return
         
-    
     if classe_formatada in classes_rpg:
         atributos_base = classes_rpg[classe_formatada]
 
@@ -160,10 +163,11 @@ async def criar(ctx:commands.Context, nome_classe: str, nome_personagem:str):
 
         salvar_personagem(id_jogador,nome_personagem, nova_ficha)
 
-        await ctx.reply(f"Parabéns **{nome_personagem}**!! Agora você é um **{classe_formatada}**. Curta sua jornado com sabedoria")
+        await ctx.reply(f"Parabéns **{nome_personagem}**!! Agora você é um **{classe_formatada}**. Curta sua jornada com sabedoria")
 
     else:
-        await ctx.reply(f"a classe que você escolheu não existe ainda :( . mas você pode dar uma olhada em ./classes para ver qual você mais gostou")
+        await ctx.reply(f"A classe que você escolheu não existe ainda :( . mas você pode dar uma olhada em ./classes para ver qual você mais gostou")
+
 @bot.command()
 async def meus_personagens(ctx:commands.Context):
     id_jogador = ctx.author.id
@@ -173,7 +177,7 @@ async def meus_personagens(ctx:commands.Context):
         texto_lista= ", ".join(lista)
         await ctx.reply(f"Seus personagens Slavos: **{texto_lista}**")
     else:
-        await ctx.reply("você não tem nenhum personagem")
+        await ctx.reply("Você não tem nenhum personagem")
 
 
 @bot.command()
@@ -197,19 +201,7 @@ async def perfil(ctx:commands.Context, nome_personagem:str):
         
         await ctx.reply(texto_perfil)
     else:
-        await ctx.reply("Você ainda não tem personagem. Use ./escolher_classe + o nome da classe que voce quer")
-
-# @bot.command()
-# async def editar(ctx:commands.Context, novo_nome:str):
-#     id_jogador = ctx.author.id
-#     dados = carregar_personagem(id_jogador)
-
-#     if dados:
-#         dados["nomes"]: novo_nome
-#         salvar_personagem(id_jogador, dados)
-#         await ctx.reply(f"Nome editado para **{novo_nome}**!")
-#     else:
-#         await ctx.reply(f"Crie um personagem antes de tentar editalo")
+        await ctx.reply("Você ainda não tem personagem. Use `./criar [Classe] [Nome]`")
 
 @bot.command()
 async def deletar(ctx:commands.Context, nome_personagem:str):
@@ -217,15 +209,14 @@ async def deletar(ctx:commands.Context, nome_personagem:str):
     sucesso = deletar_personagem(id_jogador, nome_personagem)
 
     if sucesso: 
-        await ctx.reply(f"O personagem**{nome_personagem}** foi deletado com sucesso")
+        await ctx.reply(f"O personagem **{nome_personagem}** foi deletado com sucesso")
 
     else:
-        await ctx.reply(f"você não tem um personagem "**{nome_personagem}**" para deletar")
+        await ctx.reply(f"Você não tem um personagem **{nome_personagem}** para deletar")
 
 @bot.command()
 async def renomear(ctx: commands.Context, nome_antigo: str, nome_novo: str):
     id_jogador = ctx.author.id
-    
     
     sucesso, mensagem = renomear_personagem(id_jogador, nome_antigo, nome_novo)
     
@@ -239,7 +230,6 @@ async def renomear(ctx: commands.Context, nome_antigo: str, nome_novo: str):
 async def editar(ctx: commands.Context, nome_char: str, atributo: str, valor: int):
     id_jogador = ctx.author.id
     
-    
     sucesso, mensagem = editar_atributo_personagem(id_jogador, nome_char, atributo, valor)
     
     if sucesso:
@@ -248,39 +238,100 @@ async def editar(ctx: commands.Context, nome_char: str, atributo: str, valor: in
         await ctx.reply(f"❌ Erro: {mensagem}")
 
 @bot.command()
+async def tutorial(ctx: commands.Context):
+    embed = discord.Embed(
+        title="📚 Como Jogar: Guia de Imersão",
+        description="Para a melhor experiência possível, siga estas diretrizes:",
+        color=0xf1c40f # Amarelo Dourado
+    )
+    
+    embed.add_field(
+        name="1. Canal Dedicado",
+        value="Crie ou use um canal de texto APENAS para o RPG. Isso permite que eu leia o histórico e lembre do que aconteceu na história.",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="2. Comandos Básicos",
+        value="Use `./acao [Sua Ação]` para jogar.\nExemplo: `./acao Olho em volta procurando armadilhas.`",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="3. Fichas",
+        value="Mantenha sua ficha atualizada. Eu uso seus atributos para calcular se suas ações deram certo.",
+        inline=False
+    )
+
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def GM(ctx: commands.Context, *, mensagem: str):
+    """
+    Fala diretamente com a IA para corrigir erros ou tirar dúvidas.
+    Ex: ./GM Você esqueceu que o taverneiro morreu.
+    """
+    async with ctx.typing():
+        resposta = await asyncio.to_thread(gerar_resposta_gm_ooc, mensagem)
+        await ctx.reply(f"🔧 **GM:** {resposta}")
+
+
+@bot.command()
 async def acao(ctx: commands.Context, *, mensagem_usuario: str):
-    """
-    Comando principal para interagir com o RPG.
-    Uso: ./acao Olho ao redor da taverna procurando briga.
-    """
     id_jogador = ctx.author.id
     
-    #precisamos saber qual personagem o jogador está usando.
+    # Carrega personagem 
     lista_chars = listar_personagens(id_jogador)
-    
-    if len(lista_chars) == 0:
-        await ctx.reply("Você não tem personagem criado! Use `./criar` primeiro.")
+    if not lista_chars:
+        await ctx.reply("Crie um personagem primeiro com `./criar`!")
         return
-
-    nome_personagem = lista_chars[0] 
+        
+    nome_personagem = lista_chars[0]
     dados_ficha = carregar_personagem(id_jogador, nome_personagem)
-    
-    if dados_ficha:
-        async with ctx.typing():
 
-            resposta_gm = gerar_resposta_rpg(
-                nome_personagem=dados_ficha['nome'],
-                classe=dados_ficha['classe'],
-                atributos=dados_ficha['atributos'],
-                historico_chat=[], # implementar memória
-                mensagem_usuario=mensagem_usuario
-            )
-            
+    # Coleta o histórico 
+    historico_formatado = []
+    mensagens_anteriores = [msg async for msg in ctx.channel.history(limit=80)]
+    mensagens_anteriores.reverse()
+
+    for msg in mensagens_anteriores:
+        if msg.id == ctx.message.id: continue 
+        
+        conteudo_limpo = msg.content
+        eh_bot = (msg.author == bot.user)
+        
+        
+        if not eh_bot:
+            if msg.content.startswith("./acao "):
+                conteudo_limpo = msg.content.replace("./acao ", "[JOGADOR]: ")
+            elif msg.content.startswith("./GM "):
+                conteudo_limpo = msg.content.replace("./GM ", "[OFF-GAME/Correção]: ")
+            else:
+                continue
+        
+        historico_formatado.append({
+            "conteudo": conteudo_limpo,
+            "eh_bot": eh_bot
+        })
+
+    async with ctx.typing():
+        resposta_gm = await asyncio.to_thread(
+            gerar_resposta_rpg,
+            nome_personagem=dados_ficha['nome'],
+            classe=dados_ficha['classe'],
+            atributos=dados_ficha['atributos'],
+            historico_chat=historico_formatado,
+            mensagem_atual=f"[JOGADOR]: {mensagem_usuario}"
+        )
+        
+        if len(resposta_gm) > 2000:
+            pedacos = [resposta_gm[i:i+1900] for i in range(0, len(resposta_gm), 1900)]
+            for pedaco in pedacos:
+                await ctx.reply(pedaco)
+        else:
             await ctx.reply(resposta_gm)
-    else:
-        await ctx.reply("Erro ao carregar ficha.")
 
-if token !="":
+if token != "":
     bot.run(token)
 else:
     print("token não foi encontrado. impossivel carregar o boss")
